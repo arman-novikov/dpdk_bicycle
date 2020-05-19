@@ -125,30 +125,34 @@ lcore_main(void)
 /*
  * Check that the port is on the same NUMA node as the polling thread for best performance.
  */
-	RTE_ETH_FOREACH_DEV(port_id)
-		if (rte_eth_dev_socket_id(port_id) > 0 &&
-			rte_eth_dev_socket_id(port_id) != (int)(rte_socket_id()))	///> todo: unite condit
+	RTE_ETH_FOREACH_DEV(port_id) {
+		const int dev_numa_socket_id = rte_eth_dev_socket_id(port_id);
+		const int app_numa_socket_id = (int)(rte_socket_id());
+
+		if (dev_numa_socket_id > 0 && dev_numa_socket_id != app_numa_socket_id)
 			printf("WARNING, port %u is on remote NUMA node to polling thread\n"
 				"\tPerfomance will not be optimal\n", port_id);
+	}
 
-	for (;;) {		
-		RTE_ETH_FOREACH_DEV(port_id) {
-			const uint16_t queue_id = 0; ///> we have only one 
-			struct  rte_mbuf *packet_buffers[BURST_SZIE];
-			const uint16_t nb_rx_packets = rte_eth_rx_burst(port_id,
-				queue_id, packet_buffers, BURST_SZIE);
+	for (port_id = 0;;) {
+		const uint16_t queue_id = 0;
+		struct rte_mbuf *packet_buffers[BURST_SZIE];
+		uint16_t nb_tx_packets;
+		const uint16_t nb_rx_packets = rte_eth_rx_burst(port_id,
+			queue_id, packet_buffers, BURST_SZIE);
 
-			if (unlikely(nb_rx_packets == 0))
+		if (unlikely(nb_rx_packets == 0))
 				continue;
 
-			const uint16_t nb_tx_packets = rte_eth_tx_burst(port_id ^ 1,
-				queue_id, packet_buffers, nb_rx_packets);
+		rte_eth_tx_burst(port_id+1, queue_id, packet_buffers, nb_rx_packets);	///> no ctrl for shortness
 
-			if (unlikely(nb_tx_packets < nb_rx_packets)) {
-				uint16_t iter;
-				for (iter = nb_tx_packets; iter < nb_rx_packets; ++iter)
-					rte_pktmbuf_free(packet_buffers[iter]);
-			}
+		nb_tx_packets = rte_eth_tx_burst(port_id+2, queue_id,
+			packet_buffers, nb_rx_packets);
+
+		if(unlikely(nb_tx_packets != nb_rx_packets)) {
+			uint16_t iter = nb_tx_packets;
+			for (;iter < nb_rx_packets; ++iter)
+				rte_pktmbuf_free(packet_buffers[iter]);
 		}
 	}
 
