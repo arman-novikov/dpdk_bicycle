@@ -130,23 +130,22 @@ static void dump_pack2file(const struct rte_mbuf *packet)
 	fclose(fp);
 }
 
-//todo: fix data mining
+
 __attribute__((unused))
-static void display_rte_mbuf(const struct rte_mbuf *packet)
+static void display_rte_mbuf(struct rte_mbuf *packet)
 {
-	typedef uint8_t buffer_t;
+	typedef uint8_t* buffer_t;
 	static uint32_t counter = 0;
 	const uint16_t data_len = packet->data_len;
 	const uint16_t buf_len = packet->buf_len;
-	buffer_t* buf = (buffer_t*)(packet->buf_addr);
-	uint32_t iter = 0;
+	buffer_t buf = rte_pktmbuf_mtod(packet, buffer_t);
+	uint32_t iter;
 
 	printf("PACKET #%u INFO: pkt_len == %u\tdata_len == %u\tbuf_len == %u\n",
 		++counter, packet->pkt_len, data_len, buf_len);
 
-	while(buf[iter] == 0x0) ++iter;		///skipping zeroed packets ///128 ones usually
-	printf("skipped %u bytes. DATA:\n", iter);
-	for (; iter < data_len; ++iter) {
+	printf("DATA:\n");
+	for (iter = 0; iter < data_len; ++iter) {
 		printf("%02" PRIx8 " ", buf[iter]);
 	}	
 
@@ -182,7 +181,6 @@ lcore_main(void)
 
 		for (iter = 0; iter < nb_rx_packets; ++iter) {
 			display_rte_mbuf(packet_buffers[iter]);
-			//dump_pack2file(packet_buffers[iter]);
 			rte_pktmbuf_free(packet_buffers[iter]);
 		}
 	}
