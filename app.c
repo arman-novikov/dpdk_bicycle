@@ -10,17 +10,17 @@
 #include <rte_mbuf.h>
 #include <time.h>
 
-#define NUM_MBUFS 		8191
-#define RX_RING_SIZE 	1024
-#define TX_RING_SIZE 	1024
-#define MBUF_CACHE_SIZE 250
+#define NUM_MBUFS		8191
+#define RX_RING_SIZE	1024
+#define TX_RING_SIZE	1024
+#define MBUF_CACHE_SIZE	250
 #define BURST_SZIE		32
-#define DUMP_FILE 		"dump.txt"
+#define DUMP_FILE		"dump.txt"
 
 // todo: extract methods
 static int port_init(uint16_t port_id, struct rte_mempool* mbuf_pool)
 {
-	const uint16_t rx_rings = 1,					///> number of receive queues, 
+	const uint16_t	rx_rings = 1,					///> number of receive queues, 
 					tx_rings = 1;					///> number of transmit queues,
 	
 	///> get NUMA socket to which an Ethernet device is connected
@@ -29,8 +29,8 @@ static int port_init(uint16_t port_id, struct rte_mempool* mbuf_pool)
 	uint16_t nb_rxd = RX_RING_SIZE,			///> size of each RX ring (count of descriptors there)
 			nb_txd = TX_RING_SIZE;			///> size of each TX ring (count of descriptors there)
 
-	struct rte_eth_conf port_conf = { 				///> used to configure an Ethernet port
-		.rxmode = {									///> RX features of an Ethernet port
+	struct rte_eth_conf port_conf = {				///> used to configure an Ethernet port
+		.rxmode = {									//> RX features of an Ethernet port
 			.max_rx_pkt_len = RTE_ETHER_MAX_LEN,	///> only used if packets size > 1540 (JUMBO_FRAME enabled)
 		},
 	};
@@ -40,7 +40,7 @@ static int port_init(uint16_t port_id, struct rte_mempool* mbuf_pool)
 	uint16_t rings_iterator;						///> used in for loops to iterate rings
 	struct rte_eth_dev_info dev_info;
 
-	if (!rte_eth_dev_is_valid_port(port_id)) 			///> if port_id is ok (device binded -> ok)
+	if (!rte_eth_dev_is_valid_port(port_id))		///> if port_id is ok (device binded -> ok)
 		return -6; // ENXIO
 
 //todo: not do it and delete optimization stuff
