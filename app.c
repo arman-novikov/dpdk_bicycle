@@ -1,6 +1,7 @@
 /* typical launch: sudo ./build/app -l 1 -n 4 */
 
 #include <stdint.h>
+#include <stdio.h>
 #include <inttypes.h>
 #include <rte_eal.h>
 #include <rte_ethdev.h>
@@ -14,6 +15,7 @@
 #define TX_RING_SIZE 	1024
 #define MBUF_CACHE_SIZE 250
 #define BURST_SZIE		32
+#define DUMP_FILE 		"dump.txt"
 
 // todo: extract methods
 static int port_init(uint16_t port_id, struct rte_mempool* mbuf_pool)
@@ -113,6 +115,44 @@ static int port_init(uint16_t port_id, struct rte_mempool* mbuf_pool)
 	return 0;
 }
 
+__attribute__((unused))
+static void dump_pack2file(const struct rte_mbuf *packet)
+{
+	FILE *fp = fopen(DUMP_FILE, "w+");
+	
+	if (fp == NULL) {
+		printf("cant open "DUMP_FILE" for writing\n");
+		return;
+	}
+
+	rte_pktmbuf_dump(fp, packet, 1000);
+	fprintf(fp, "=======================================\n");
+	fclose(fp);
+}
+
+//todo: fix data mining
+__attribute__((unused))
+static void display_rte_mbuf(const struct rte_mbuf *packet)
+{
+	typedef uint8_t buffer_t;
+	static uint32_t counter = 0;
+	const uint16_t data_len = packet->data_len;
+	const uint16_t buf_len = packet->buf_len;
+	buffer_t* buf = (buffer_t*)(packet->buf_addr);
+	uint32_t iter = 0;
+
+	printf("PACKET #%u INFO: pkt_len == %u\tdata_len == %u\tbuf_len == %u\n",
+		++counter, packet->pkt_len, data_len, buf_len);
+
+	while(buf[iter] == 0x0) ++iter;		///skipping zeroed packets ///128 ones usually
+	printf("skipped %u bytes. DATA:\n", iter);
+	for (; iter < data_len; ++iter) {
+		printf("%02" PRIx8 " ", buf[iter]);
+	}	
+
+	printf("\n========================================================\n\n");
+}
+
 static __attribute__((noreturn)) void
 lcore_main(void)
 {
@@ -132,23 +172,18 @@ lcore_main(void)
 
 	for (port_id = 0;;) {
 		const uint16_t queue_id = 0;
+		uint16_t iter;
 		struct rte_mbuf *packet_buffers[BURST_SZIE];
-		uint16_t nb_tx_packets;
 		const uint16_t nb_rx_packets = rte_eth_rx_burst(port_id,
 			queue_id, packet_buffers, BURST_SZIE);
 
 		if (unlikely(nb_rx_packets == 0))
 				continue;
 
-		rte_eth_tx_burst(port_id+1, queue_id, packet_buffers, nb_rx_packets);	///> no ctrl for shortness
-
-		nb_tx_packets = rte_eth_tx_burst(port_id+2, queue_id,
-			packet_buffers, nb_rx_packets);
-
-		if(unlikely(nb_tx_packets != nb_rx_packets)) {
-			uint16_t iter = nb_tx_packets;
-			for (;iter < nb_rx_packets; ++iter)
-				rte_pktmbuf_free(packet_buffers[iter]);
+		for (iter = 0; iter < nb_rx_packets; ++iter) {
+			display_rte_mbuf(packet_buffers[iter]);
+			//dump_pack2file(packet_buffers[iter]);
+			rte_pktmbuf_free(packet_buffers[iter]);
 		}
 	}
 
